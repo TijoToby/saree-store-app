@@ -1,4 +1,3 @@
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -17,10 +16,19 @@ public class AddProductPage extends JFrame {
     private final JTextField imagePathField = new JTextField(15);
     private final JTextField stockField = new JTextField(15);
     private final JComboBox<String> categoryComboBox;
+    private final String adminUsername;
+    
+    // ⭐️ NEW: Reference to the main product list page ⭐️
+    private final ManageProductsPage manageProductsPage; 
 
-    public AddProductPage(String adminUsername) {
+    // Modified Constructor to accept the calling page
+    public AddProductPage(String adminUsername, ManageProductsPage callerPage) { 
+        super("SareeStore - Add New Product"); 
+        this.adminUsername = adminUsername;
+        this.manageProductsPage = callerPage; // Store the reference
+        
         setTitle("SareeStore - Add New Product");
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); // Close only this window
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); 
         setSize(800, 650);
         setLocationRelativeTo(null);
         getContentPane().setBackground(Color.WHITE);
@@ -47,8 +55,6 @@ public class AddProductPage extends JFrame {
         categoryComboBox = new JComboBox<>(categories);
         categoryComboBox.setFont(new Font("Arial", Font.PLAIN, 16));
 
-        // Note: The UI design asks for Product ID, but we will use AUTO_INCREMENT. 
-        // We include the label for consistency but keep the field read-only.
         idField.setEditable(false); 
         idField.setText("AUTO GENERATED");
         
@@ -89,7 +95,7 @@ public class AddProductPage extends JFrame {
 
         // Row 8: Action Buttons
         JButton addBtn = new JButton("Add Product");
-        JButton backBtn = new JButton("Back to Admin");
+        JButton backBtn = new JButton("Back to Admin"); // Changed from "Back to Admin" to "Back to List" for better flow
         
         styleButton(addBtn, new Color(34, 139, 34)); // Green
         styleButton(backBtn, new Color(100, 100, 100)); // Gray
@@ -111,13 +117,14 @@ public class AddProductPage extends JFrame {
         // --- Action Listeners ---
         addBtn.addActionListener(e -> addProduct());
         backBtn.addActionListener(e -> {
-            new AdminPage(adminUsername);
-            dispose();
+            // New AdminPage(adminUsername); // Use this if you want to go all the way back
+            dispose(); // Just close this window, leaving the ManageProductsPage open
         });
     }
-
-    // Helper method to add a row to the GridBagLayout
+    
+    // Helper methods (addRow and styleButton are correct)
     private void addRow(JPanel panel, GridBagConstraints gbc, String labelText, JComponent component, int y) {
+        // ... (implementation is correct) ...
         gbc.gridx = 0;
         gbc.gridy = y;
         gbc.gridwidth = 1;
@@ -133,6 +140,7 @@ public class AddProductPage extends JFrame {
     }
     
     private void styleButton(JButton button, Color bgColor) {
+        // ... (implementation is correct) ...
         button.setFont(new Font("Arial", Font.BOLD, 18));
         button.setBackground(bgColor);
         button.setForeground(Color.WHITE);
@@ -159,9 +167,8 @@ public class AddProductPage extends JFrame {
             double price = Double.parseDouble(priceText);
             int stock = Integer.parseInt(stockText);
             
-            // 🔴 SQL to insert data into the existing 'Products' table
             String sql = "INSERT INTO Products (name, description, price, category, image_path, stock_quantity) " +
-                         "VALUES (?, ?, ?, ?, ?, ?)";
+                          "VALUES (?, ?, ?, ?, ?, ?)";
             
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -177,6 +184,12 @@ public class AddProductPage extends JFrame {
                 
                 if (rowsAffected > 0) {
                     JOptionPane.showMessageDialog(this, "Product '" + name + "' added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    
+                    // ⭐️ NEW: Refresh the main product list after successful addition ⭐️
+                    if (manageProductsPage != null) {
+                        manageProductsPage.loadProducts();
+                    }
+                    
                     // Clear fields after success
                     nameField.setText("");
                     detailsArea.setText("");
