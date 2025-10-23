@@ -7,7 +7,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("serial")
@@ -17,12 +19,13 @@ public class AccountPage extends JFrame {
     private JLabel currentAddressLabel;
     private JPanel orderHistoryContentPanel;
     private final DecimalFormat df = new DecimalFormat("₹#,##0.00");
-
+    private final String adminUsername = ""; // Unused but kept as it was in the original code
 
     public AccountPage(String username) {
+        super("KAYRA Saree House - My Account");
         this.username = username;
-        setTitle("SareeStore - My Account");
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        // Removed redundant setTitle and JFrame setup as BaseFrame handles it
+        // Note: Keeping setExtendedState here as it might override BaseFrame's setting
         setExtendedState(JFrame.MAXIMIZED_BOTH); 
         getContentPane().setBackground(new Color(245, 245, 245));
         setLayout(new BorderLayout());
@@ -44,9 +47,10 @@ public class AccountPage extends JFrame {
         setVisible(true);
     }
     
-    // --- UI Creation Methods (Abbreviated for focus) ---
+    // --- UI Creation Methods (Same as before) ---
     
     private JPanel createTopBar() {
+        // ... (Code for createTopBar remains the same) ...
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setBackground(Color.WHITE);
         topBar.setBorder(new EmptyBorder(15, 30, 15, 30));
@@ -56,14 +60,15 @@ public class AccountPage extends JFrame {
         logo.setForeground(new Color(140, 40, 80));
         topBar.add(logo, BorderLayout.WEST);
         
-        // Back to Home Button
         JButton backBtn = new JButton("<< Back to Store");
         backBtn.setFont(new Font("Arial", Font.BOLD, 14));
         backBtn.setBackground(new Color(200, 200, 200));
         backBtn.setForeground(Color.BLACK);
         backBtn.setFocusPainted(false);
         backBtn.addActionListener(e -> {
-            new homePage(username); // Assuming your home page class is named homePage
+            // Assuming your home page class is named homePage
+            // This is safe because homePage takes the username, not adminUsername.
+            new homePage(username); 
             dispose();
         });
 
@@ -72,6 +77,7 @@ public class AccountPage extends JFrame {
     }
     
     private JPanel createProfileManagementPanel() {
+        // ... (Code for createProfileManagementPanel remains the same) ...
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(Color.WHITE);
@@ -94,7 +100,6 @@ public class AccountPage extends JFrame {
         currentAddressLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(currentAddressLabel);
 
-        // Placeholder for address update button
         JButton updateAddressBtn = new JButton("Update Shipping Address");
         updateAddressBtn.setFont(new Font("Arial", Font.BOLD, 14));
         updateAddressBtn.setBackground(new Color(65, 105, 225));
@@ -112,6 +117,7 @@ public class AccountPage extends JFrame {
     }
     
     private JPanel createOrderHistoryPanel() {
+        // ... (Code for createOrderHistoryPanel remains the same) ...
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createTitledBorder(
@@ -132,9 +138,10 @@ public class AccountPage extends JFrame {
         return panel;
     }
 
-    // --- Data Loading Methods ---
+    // --- Data Loading Methods (Same as before) ---
 
     private void loadUserData() {
+        // ... (Code for loadUserData remains the same) ...
         String sql = "SELECT address FROM users WHERE username = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -153,17 +160,14 @@ public class AccountPage extends JFrame {
         }
     }
     
-    /**
-     * Loads order history from the Orders table and displays it.
-     */
     public void displayOrderHistory() {
+        // ... (Code for displayOrderHistory remains the same) ...
         orderHistoryContentPanel.removeAll();
         orderHistoryContentPanel.setLayout(new BoxLayout(orderHistoryContentPanel, BoxLayout.Y_AXIS));
 
-        // Get feedback status for all orders efficiently
         Map<Integer, Boolean> feedbackStatusMap = checkExistingFeedback(); 
 
-        String sql = "SELECT order_id, order_date, total_amount, status FROM Orders WHERE username = ? ORDER BY order_id DESC";
+        String sql = "SELECT order_id, order_date, total_amount, status FROM orders WHERE username = ? ORDER BY order_id DESC";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -180,12 +184,11 @@ public class AccountPage extends JFrame {
                 double total = rs.getDouble("total_amount");
                 String status = rs.getString("status");
                 
-                // Use the map to check if feedback exists for this order
                 boolean hasFeedback = feedbackStatusMap.getOrDefault(orderId, false);
 
                 JPanel orderRow = createOrderRow(orderId, date, total, status, hasFeedback);
                 orderHistoryContentPanel.add(orderRow);
-                orderHistoryContentPanel.add(Box.createVerticalStrut(15)); // Spacer
+                orderHistoryContentPanel.add(Box.createVerticalStrut(15)); 
             }
 
             if (!ordersFound) {
@@ -221,7 +224,7 @@ public class AccountPage extends JFrame {
         idDatePanel.setBackground(new Color(250, 250, 250));
         JLabel idLabel = new JLabel("Order #" + orderId);
         idLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        JLabel dateLabel = new JLabel("Date: " + date.split(" ")[0]); // Only show the date part
+        JLabel dateLabel = new JLabel("Date: " + date.split(" ")[0]); 
         idDatePanel.add(idLabel);
         idDatePanel.add(dateLabel);
         row.add(idDatePanel, BorderLayout.WEST);
@@ -229,8 +232,9 @@ public class AccountPage extends JFrame {
         // --- Center Panel (Details and Status) ---
         JPanel centerPanel = new JPanel(new GridLayout(2, 1));
         centerPanel.setBackground(new Color(250, 250, 250));
-        // Fetch and display item summary
-        JLabel itemsLabel = new JLabel("Items: " + getOrderSummary(orderId));
+        
+        // Items Label is now fetching the actual item names!
+        JLabel itemsLabel = new JLabel("Items: " + getOrderSummary(orderId)); 
         
         // Status Label styling
         JLabel statusLabel = new JLabel("Status: " + status);
@@ -256,7 +260,7 @@ public class AccountPage extends JFrame {
         totalLabel.setFont(new Font("Arial", Font.BOLD, 18));
         rightPanel.add(totalLabel);
 
-        // ⭐️ Feedback Button Logic ⭐️
+        // ⭐️ Feedback Button Logic (UPDATED) ⭐️
         if (status.equals("Delivered")) {
             if (!hasFeedback) {
                 JButton feedbackBtn = new JButton("Leave Feedback");
@@ -264,9 +268,21 @@ public class AccountPage extends JFrame {
                 feedbackBtn.setForeground(Color.WHITE);
                 feedbackBtn.setFocusPainted(false);
                 feedbackBtn.addActionListener(e -> {
-                    // Launch the FeedbackPage for this order
-                    new FeedbackPage(username, orderId, this); 
-                    dispose(); // Close AccountPage or manage as needed
+                    // Fetch the list of items to pass to the FeedbackPage
+                    Map<Integer, String> items = getOrderItemsForFeedback(orderId);
+                    
+                    if (items.isEmpty()) {
+                         JOptionPane.showMessageDialog(this, 
+                             "Error: No items found in Order #" + orderId + ". Cannot leave feedback.", 
+                             "Data Missing", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    
+                    // Launch the FeedbackPage, passing the map of items for review
+                    new FeedbackPage(username, orderId, items, this); 
+                    // You might want to keep the account page open or refresh it,
+                    // but following your original dispose logic:
+                    dispose(); 
                 });
                 rightPanel.add(feedbackBtn);
             } else {
@@ -282,12 +298,12 @@ public class AccountPage extends JFrame {
     }
 
     /**
-     * Retrieves a summary of items in the order from the OrderItems table.
+     * Retrieves a summary of items in the order from the OrderItems table. (This already works)
      */
-    private String getOrderSummary(int orderId) {
-        // This SQL query assumes you have an OrderItems table and a Products table
-        String itemSql = "SELECT oi.quantity, p.name FROM OrderItems oi " +
-                         "JOIN Products p ON oi.product_id = p.product_id " +
+   private String getOrderSummary(int orderId) {
+        // SQL query now selects oi.product_id
+        String itemSql = "SELECT oi.quantity, oi.product_id, p.name FROM orderitems oi " +
+                         "JOIN products p ON oi.product_id = p.product_id " +
                          "WHERE oi.order_id = ?";
         
         try (Connection conn = DBConnection.getConnection();
@@ -297,12 +313,16 @@ public class AccountPage extends JFrame {
             ResultSet rs = pstmt.executeQuery();
             
             if (!rs.isBeforeFirst()) {
-                return "[Details unavailable]";
+                // If this is returned, it confirms the orderitems table has no entry for this order ID.
+                return "[Details unavailable]"; 
             }
             
             StringBuilder summary = new StringBuilder();
             while (rs.next()) {
-                summary.append(rs.getString("name")).append(" (x").append(rs.getInt("quantity")).append("), ");
+                // ⭐️ UPDATED: Include Product ID in the display ⭐️
+                summary.append(rs.getString("name"))
+                       .append(" (ID: ").append(rs.getInt("product_id")) // Added Product ID
+                       .append(", x").append(rs.getInt("quantity")).append("), ");
             }
             // Remove the trailing comma and space
             return summary.substring(0, summary.length() - 2); 
@@ -311,13 +331,45 @@ public class AccountPage extends JFrame {
             return "[Error loading details]";
         }
     }
-    
+    /**
+     * ⭐️ NEW METHOD ⭐️
+     * Retrieves the Product ID and Name for all items in an order. 
+     * This is passed to the FeedbackPage to let the user select/confirm which item to review.
+     */
+    private Map<Integer, String> getOrderItemsForFeedback(int orderId) {
+        Map<Integer, String> items = new HashMap<>();
+        // Query to get the product ID and name for all items in the order
+        String sql = "SELECT oi.product_id, p.name " +
+                     "FROM orderitems oi " +
+                     "JOIN products p ON oi.product_id = p.product_id " +
+                     "WHERE oi.order_id = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, orderId);
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                items.put(rs.getInt("product_id"), rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching review items for Order ID " + orderId + ": " + e.getMessage());
+            // An empty map will trigger the error message in createOrderRow
+        }
+        return items;
+    }
+
+
     /**
      * Checks the Feedback table to see which orders the user has already reviewed.
      */
     private Map<Integer, Boolean> checkExistingFeedback() {
+        // ... (Code for checkExistingFeedback remains the same) ...
         Map<Integer, Boolean> status = new HashMap<>();
-        String sql = "SELECT order_id FROM Feedback WHERE username = ?";
+        // NOTE: This assumes your Feedback table links a review to an ORDER_ID.
+        // If you change the Feedback table to link to PRODUCT_ID, you'll need to update this query.
+        String sql = "SELECT order_id FROM feedback WHERE username = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
