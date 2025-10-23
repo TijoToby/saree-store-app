@@ -295,10 +295,10 @@ public class PaymentPage extends JFrame {
         dispose();
     }
 
-    // ⭐️ FIX for: Field 'shipping_name', 'shipping_state', etc. doesn't have a default value
-    private int createOrderRecord(double totalPrice, String paymentMethod, String orderStatus) {
-        // SQL includes all required shipping fields with placeholders
-        String sql = "INSERT INTO orders (username, total_amount, payment_method, status, shipping_name, shipping_state, shipping_city, shipping_address, shipping_zip, order_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+// ⭐️ FIX for: Field 'shipping_name', 'shipping_state', etc. doesn't have a default value
+private int createOrderRecord(double totalPrice, String paymentMethod, String orderStatus) {
+// SQL includes all required shipping fields with placeholders
+    String sql = "INSERT INTO orders (username, total_amount, payment_method, status, shipping_name, shipping_state, shipping_city, shipping_address, shipping_zip, order_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
         int orderId = -1;
         
         // Placeholder Data (Since the UI doesn't collect it)
@@ -351,8 +351,8 @@ public class PaymentPage extends JFrame {
         
         // Step A: SELECT the cart items before deleting them
         String selectSql = "SELECT c.product_id, c.quantity, p.price " +
-                            "FROM cart c JOIN Products p ON c.product_id = p.product_id " +
-                            "WHERE c.username = ? AND c.order_id IS NULL";
+                              "FROM cart c JOIN Products p ON c.product_id = p.product_id " +
+                              "WHERE c.username = ? AND c.order_id IS NULL";
         
         // Step B: INSERT one item at a time into orderitems
         String insertSql = "INSERT INTO orderitems (order_id, product_id, quantity, price_at_purchase) VALUES (?, ?, ?, ?)";
@@ -368,7 +368,7 @@ public class PaymentPage extends JFrame {
             try (PreparedStatement selectPstmt = conn.prepareStatement(selectSql)) {
                 selectPstmt.setString(1, username);
                 try (ResultSet rs = selectPstmt.executeQuery();
-                    PreparedStatement insertPstmt = conn.prepareStatement(insertSql)) {
+                     PreparedStatement insertPstmt = conn.prepareStatement(insertSql)) {
 
                     while (rs.next()) {
                         int productId = rs.getInt("product_id");
