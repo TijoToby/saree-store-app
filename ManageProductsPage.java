@@ -1,5 +1,3 @@
-
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -16,9 +14,12 @@ public class ManageProductsPage extends JFrame {
 
     private final JTable productTable;
     private final DefaultTableModel tableModel;
+    private final String adminUsername; // Keep track of admin user
     private List<Integer> productIds = new ArrayList<>(); // Stores PKs corresponding to table rows
 
     public ManageProductsPage(String adminUsername) {
+        this.adminUsername = adminUsername;
+        
         setTitle("SareeStore - Manage Products");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); 
         setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -35,19 +36,36 @@ public class ManageProductsPage extends JFrame {
         titleLabel.setForeground(new Color(140, 40, 80));
         headerPanel.add(titleLabel, BorderLayout.CENTER);
         
+        // --- Navigation Buttons Panel (East) ---
+        JPanel navPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        navPanel.setBackground(Color.WHITE);
+        
+        // ⭐️ NEW: Add Product Button ⭐️
+        JButton addProductBtn = new JButton("+ Add New Product");
+        styleButton(addProductBtn, new Color(34, 139, 34), 16); // Green
+        navPanel.add(addProductBtn);
+        
         JButton backBtn = new JButton("<< Back to Admin");
         styleButton(backBtn, new Color(100, 100, 100), 16);
-        headerPanel.add(backBtn, BorderLayout.EAST);
+        navPanel.add(backBtn);
+        
+        headerPanel.add(navPanel, BorderLayout.EAST);
         
         add(headerPanel, BorderLayout.NORTH);
 
         // --- Table Setup ---
         String[] columnNames = {"ID", "Name", "Category", "Price (₹)", "Stock", "Image Path", "Edit", "Delete"};
         tableModel = new DefaultTableModel(columnNames, 0) {
-            // Only allow editing in columns 6 (Edit) and 7 (Delete)
             @Override
             public boolean isCellEditable(int row, int column) {
+                // Only allow editing in columns 6 (Edit) and 7 (Delete)
                 return column >= 6; 
+            }
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                // Helps render the buttons correctly (though we use mouse listeners)
+                if (columnIndex == 6 || columnIndex == 7) return JButton.class;
+                return super.getColumnClass(columnIndex);
             }
         };
         
@@ -55,12 +73,24 @@ public class ManageProductsPage extends JFrame {
         productTable.setRowHeight(30);
         productTable.setFont(new Font("Arial", Font.PLAIN, 14));
         
+        // Set column widths for better display
+        productTable.getColumnModel().getColumn(0).setPreferredWidth(50); // ID
+        productTable.getColumnModel().getColumn(3).setPreferredWidth(100); // Price
+        productTable.getColumnModel().getColumn(4).setPreferredWidth(70); // Stock
+        productTable.getColumnModel().getColumn(6).setPreferredWidth(50); // Edit
+        productTable.getColumnModel().getColumn(7).setPreferredWidth(50); // Delete
+        
         // Add table to scroll pane
         JScrollPane scrollPane = new JScrollPane(productTable);
         scrollPane.setBorder(BorderFactory.createEmptyBorder(20, 50, 50, 50));
         add(scrollPane, BorderLayout.CENTER);
         
         // --- Action Listeners ---
+        addProductBtn.addActionListener(e -> {
+            new AddProductPage(adminUsername, this); // Pass 'this' reference to reload table later
+            // dispose(); // Keep this window open if Admin wants to add multiple products
+        });
+        
         backBtn.addActionListener(e -> {
             new AdminPage(adminUsername);
             dispose();
@@ -93,7 +123,7 @@ public class ManageProductsPage extends JFrame {
     // --- Logic Methods ---
 
     /** Fetches all products from the Products table and populates the JTable. */
-    private void loadProducts() {
+    public void loadProducts() {
         tableModel.setRowCount(0);
         productIds.clear();
         
@@ -131,10 +161,13 @@ public class ManageProductsPage extends JFrame {
     private void openEditDialog(int productId, int rowIndex) {
         String name = (String) tableModel.getValueAt(rowIndex, 1);
         String category = (String) tableModel.getValueAt(rowIndex, 2);
-        String price = (String) tableModel.getValueAt(rowIndex, 3);
+        // Remove '₹' and parse price string to a clean number string for the field
+        String price = ((String) tableModel.getValueAt(rowIndex, 3)).replace("₹", ""); 
         String stock = String.valueOf(tableModel.getValueAt(rowIndex, 4));
         String imagePath = (String) tableModel.getValueAt(rowIndex, 5);
-
+        
+        // ... (rest of the openEditDialog logic remains the same) ...
+        
         // Use JTextFields for input
         JTextField nameField = new JTextField(name);
         JTextField priceField = new JTextField(price);
@@ -185,6 +218,7 @@ public class ManageProductsPage extends JFrame {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
+            // ... (parameters remain correct) ...
             pstmt.setString(1, name);
             pstmt.setString(2, category);
             pstmt.setDouble(3, price);
@@ -200,6 +234,7 @@ public class ManageProductsPage extends JFrame {
             }
             
         } catch (SQLException ex) {
+            // ... (error handling remains correct) ...
             JOptionPane.showMessageDialog(this, "Error updating product: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
         }
@@ -217,6 +252,7 @@ public class ManageProductsPage extends JFrame {
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 
+                // ... (logic remains correct) ...
                 pstmt.setInt(1, productId);
                 int rowsAffected = pstmt.executeUpdate();
                 
