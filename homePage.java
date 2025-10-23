@@ -103,16 +103,16 @@ public class homePage extends JFrame {
         // --- Placeholder Data used for demonstration (Adjusted to use available images) ---
         if (category.equals("New Collection")) {
             list.add(new Product(101, "Royal Blue Banarasi Silk", 5499.00, category, "images/saree1.jpg"));
-            list.add(new Product(102, "Blue Abstract Georgette", 2899.50, category, "images/saree2.jpg"));
+            list.add(new Product(102, "Blue Abstract Georgette", 2899.50, category, "images/saree4.jpg"));
         } else if (category.equals("Cotton")) {
-            list.add(new Product(201, "Summer Floral Cotton Print", 1950.00, category, "images/saree3.jpg"));
-            list.add(new Product(202, "Linen Cotton Casual White", 1200.00, category, "images/saree4.jpg"));
+            list.add(new Product(201, "Summer Floral Cotton Print", 1950.00, category, "images/saree2.jpg"));
+            list.add(new Product(202, "Linen Cotton Casual White", 1200.00, category, "images/saree3.jpg"));
         } else if (category.equals("Silk")) {
             // Reusing an image
-            list.add(new Product(301, "Kanjeevaram Wedding Silk", 8500.00, category, "images/saree1.jpg"));
+            list.add(new Product(301, "Kanjeevaram Wedding Silk", 8500.00, category, "images/saree5.jpg"));
         } else if (category.equals("Banarasi")) {
             // Reusing an image
-            list.add(new Product(401, "Classic Maroon Banarasi", 7200.00, category, "images/saree3.jpg"));
+            list.add(new Product(401, "Classic Maroon Banarasi", 7200.00, category, "images/saree6.jpg"));
         }
         
         /* * Uncomment and use this section when your database is fully populated 
