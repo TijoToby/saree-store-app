@@ -46,7 +46,8 @@ public class cartpage extends JFrame {
         backBtn.setFocusPainted(false);
         backBtn.setBackground(new Color(240, 240, 240));
         backBtn.addActionListener(e -> {
-            new homePage(username);
+            // Uncommmented assuming homePage.java is available
+            new homePage(username); 
             dispose();
         });
 
@@ -99,9 +100,11 @@ public class cartpage extends JFrame {
 
         checkoutBtn.addActionListener(e -> {
             if (grandTotal > 0) {
-                // ⭐️ FIX APPLIED HERE: Uncommented and completed the navigation line ⭐️
-                // Assuming PaymentPage is the next screen and requires username and total
+                // ⭐️ FIX APPLIED: This line is now responsible for opening PaymentPage.
+                // Ensure PaymentPage.java is available and has a constructor PaymentPage(String, double).
                 new PaymentPage(username, grandTotal); 
+                
+                // The temporary placeholder message is removed.
                 
                 dispose();
             } else {
@@ -124,7 +127,7 @@ public class cartpage extends JFrame {
                      "FROM Cart c JOIN Products p ON c.product_id = p.product_id " +
                      "WHERE c.username = ? AND c.order_id IS NULL";
 
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = DBConnection.getConnection(); 
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, username);
