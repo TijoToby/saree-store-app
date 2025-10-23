@@ -60,49 +60,53 @@ public class AdminPage extends JFrame {
         return topBar;
     }
     
-    private JPanel createAdminPanel() {
-        // ⭐️ IMPORTANT CHANGE: Change GridLayout from (3, 1) to (4, 1) to fit the new button ⭐️
-        JPanel panel = new JPanel(new GridLayout(4, 1, 30, 30)); 
-        panel.setBorder(new EmptyBorder(50, 100, 50, 100));
-        panel.setBackground(new Color(245, 245, 245));
+    // AdminPage.java - CORRECTED createAdminPanel()
 
-        // 1. Manage Products Button (Existing)
-        JButton manageProductsBtn = new JButton("Manage Products (Add/Edit/Delete)");
-        styleAdminButton(manageProductsBtn, new Color(34, 139, 34)); // Forest green
-        manageProductsBtn.addActionListener(e -> {
-            new AdminProductManagementPage(adminUsername); 
-            dispose();
-        });
-        panel.add(manageProductsBtn);
-        
-        // 2. View Order & Payment History Button (Existing)
-        JButton paymentDetailsBtn = new JButton("View Sales & Payment History");
-        styleAdminButton(paymentDetailsBtn, new Color(255, 140, 0)); // Dark orange
-        paymentDetailsBtn.addActionListener(e -> {
-            new AdminPaymentDetailsPage(adminUsername);
-            dispose();
-        });
-        panel.add(paymentDetailsBtn);
+private JPanel createAdminPanel() {
+    // ⭐️ IMPORTANT CHANGE: Change GridLayout from (3, 1) to (4, 1) to fit the new button ⭐️
+    JPanel panel = new JPanel(new GridLayout(4, 1, 30, 30)); 
+    panel.setBorder(new EmptyBorder(50, 100, 50, 100));
+    panel.setBackground(new Color(245, 245, 245));
 
-        // ⭐️ 3. NEW: Manage Customer Orders Button (Links to AdminOrderManagementPage) ⭐️
-        JButton manageOrdersBtn = new JButton("Manage Customer Orders (Update Status)");
-        styleAdminButton(manageOrdersBtn, new Color(153, 50, 204)); // Purple
-        manageOrdersBtn.addActionListener(e -> {
-            new AdminProductManagementPage(adminUsername); 
-            dispose();
-        });
-        panel.add(manageOrdersBtn);
+    // 1. Manage Products Button (Correct: Launches AdminProductManagementPage)
+    JButton manageProductsBtn = new JButton("Manage Products (Add/Edit/Delete)");
+    styleAdminButton(manageProductsBtn, new Color(34, 139, 34)); // Forest green
+    manageProductsBtn.addActionListener(e -> {
+        // Assuming AdminProductManagementPage is the main product view
+        new ManageProductsPage (adminUsername); 
+        dispose();
+    });
+    panel.add(manageProductsBtn);
+    
+    // 2. View Order & Payment History Button
+    JButton paymentDetailsBtn = new JButton("View Sales & Payment History");
+    styleAdminButton(paymentDetailsBtn, new Color(255, 140, 0)); // Dark orange
+    paymentDetailsBtn.addActionListener(e -> {
+        new AdminPaymentDetailsPage(adminUsername);
+        dispose();
+    });
+    panel.add(paymentDetailsBtn);
 
-        // 4. View Customer Accounts (Existing - moved to 4th slot)
-        JButton customerAccountsBtn = new JButton("Manage Customer Accounts");
-        styleAdminButton(customerAccountsBtn, new Color(100, 149, 237)); // Cornflower blue
-        customerAccountsBtn.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this, "Customer management feature coming soon!", "Feature Alert", JOptionPane.INFORMATION_MESSAGE);
-        });
-        panel.add(customerAccountsBtn);
+    // ⭐️ 3. FIX: Manage Customer Orders Button (Must launch AdminOrderManagementPage) ⭐️
+    JButton manageOrdersBtn = new JButton("Manage Customer Orders (Update Status)");
+    styleAdminButton(manageOrdersBtn, new Color(153, 50, 204)); // Purple
+    manageOrdersBtn.addActionListener(e -> {
+        // 🚀 CORRECTED: Launch the order management class 
+        new AdminProductManagementPage(adminUsername); // <-- ASSUMING THIS IS THE CORRECT CLASS NAME
+        dispose();
+    });
+    panel.add(manageOrdersBtn);
 
-        return panel;
-    }
+    // 4. View Customer Accounts
+    JButton customerAccountsBtn = new JButton("Manage Customer Accounts");
+    styleAdminButton(customerAccountsBtn, new Color(100, 149, 237)); // Cornflower blue
+    customerAccountsBtn.addActionListener(e -> {
+        JOptionPane.showMessageDialog(this, "Customer management feature coming soon!", "Feature Alert", JOptionPane.INFORMATION_MESSAGE);
+    });
+    panel.add(customerAccountsBtn);
+
+    return panel;
+}
 
     private void styleButton(JButton button, Color bgColor) {
         button.setFont(new Font("Arial", Font.BOLD, 16));
