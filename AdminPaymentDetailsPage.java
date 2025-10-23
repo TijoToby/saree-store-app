@@ -1,5 +1,3 @@
-
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -14,6 +12,9 @@ import java.sql.SQLException;
 @SuppressWarnings("serial")
 public class AdminPaymentDetailsPage extends JFrame {
 
+    // Assuming DBConnection.java exists and handles database connection
+    // private static final long serialVersionUID = 1L; 
+
     private final String adminUsername;
     private JTable paymentTable;
     private DefaultTableModel tableModel;
@@ -22,7 +23,7 @@ public class AdminPaymentDetailsPage extends JFrame {
         this.adminUsername = adminUsername;
 
         setTitle("SareeStore Admin - Payment Details");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); 
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         getContentPane().setBackground(new Color(245, 245, 245));
         setLayout(new BorderLayout());
@@ -35,7 +36,7 @@ public class AdminPaymentDetailsPage extends JFrame {
         mainPanel.setBackground(new Color(245, 245, 245));
         
         // Setup table model
-        String[] columnNames = {"Order ID (Price)", "Username", "Status", "Item Name", "Quantity", "Total Price (₹)"};
+        String[] columnNames = {"Order ID", "Username", "Status", "Item Name", "Quantity", "Total Price (₹)"};
         tableModel = new DefaultTableModel(columnNames, 0);
         paymentTable = new JTable(tableModel);
         
@@ -49,6 +50,7 @@ public class AdminPaymentDetailsPage extends JFrame {
 
         add(mainPanel, BorderLayout.CENTER);
 
+        // Load data initially
         loadPaymentDetails();
 
         setVisible(true);
@@ -66,6 +68,19 @@ public class AdminPaymentDetailsPage extends JFrame {
         logo.setForeground(new Color(65, 105, 225));
         topBar.add(logo, BorderLayout.WEST);
 
+        // --- Navigation and Refresh Buttons ---
+        JPanel navButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 5));
+        navButtons.setBackground(Color.WHITE);
+        
+        // Refresh Button
+        JButton refreshBtn = new JButton("🔄 Refresh Data");
+        styleButton(refreshBtn, new Color(25, 120, 190)); 
+        
+        refreshBtn.addActionListener(e -> {
+            loadPaymentDetails(); // Re-run the data loading method
+            JOptionPane.showMessageDialog(this, "Order history refreshed successfully!", "Refreshed", JOptionPane.INFORMATION_MESSAGE);
+        });
+        
         JButton backBtn = new JButton("<< Back to Admin Home");
         styleButton(backBtn, new Color(200, 200, 200));
         backBtn.addActionListener(e -> {
@@ -74,8 +89,7 @@ public class AdminPaymentDetailsPage extends JFrame {
             dispose();
         });
 
-        JPanel navButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 25, 5));
-        navButtons.setBackground(Color.WHITE);
+        navButtons.add(refreshBtn);
         navButtons.add(backBtn);
         topBar.add(navButtons, BorderLayout.EAST);
 
@@ -85,7 +99,11 @@ public class AdminPaymentDetailsPage extends JFrame {
     private void styleButton(JButton button, Color bgColor) {
         button.setFont(new Font("Arial", Font.BOLD, 16));
         button.setBackground(bgColor);
-        button.setForeground(Color.BLACK);
+        
+        // Set foreground color based on background for contrast
+        Color fgColor = (bgColor.getRed() < 128 && bgColor.getGreen() < 128 && bgColor.getBlue() < 128) ? Color.WHITE : Color.BLACK;
+        button.setForeground(fgColor);
+        
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createEmptyBorder(10, 25, 10, 25));
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -94,60 +112,73 @@ public class AdminPaymentDetailsPage extends JFrame {
     // --- Database Logic ---
 
     /**
-     * Loads all finalized order details from the Cart table.
-     * Orders are grouped by final_price to simulate distinct orders.
+     * Loads all orders (regardless of status) and their item details by using 
+     * a LEFT JOIN to ensure all orders are listed, even if item details are missing.
      */
-    private void loadPaymentDetails() {
-        // Clear existing data
+    public void loadPaymentDetails() { 
         tableModel.setRowCount(0); 
 
-        // SQL to fetch all items that belong to a finalized order (final_price is NOT NULL)
-        String sql = "SELECT c.username, c.final_price, c.status, p.name, c.quantity " +
-                     "FROM Cart c JOIN Products p ON c.product_id = p.product_id " +
-                     "WHERE c.final_price IS NOT NULL " + 
-                     "ORDER BY c.final_price DESC, c.username"; // Sort to group items by order/user
+        // SQL: Use LEFT JOIN to guarantee every row from the 'orders' table is included.
+        String sql = "SELECT o.order_id, o.username, o.status, o.total_amount, " +
+                     "p.name AS item_name, c.quantity " +
+                     "FROM orders o " +
+                     "LEFT JOIN cart c ON o.order_id = c.order_id " +
+                     "LEFT JOIN products p ON c.product_id = p.product_id " +
+                     "ORDER BY o.order_date DESC, o.order_id DESC"; 
+
+        int lastOrderId = -1; 
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
 
             if (!rs.isBeforeFirst()) {
-                JOptionPane.showMessageDialog(this, "No finalized orders found.", "Information", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "No orders found.", "Information", JOptionPane.INFORMATION_MESSAGE);
                 return;
             }
 
-            double lastFinalPrice = -1;
-            String lastUsername = "";
-
             while (rs.next()) {
-                String currentUsername = rs.getString("username");
-                double currentFinalPrice = rs.getDouble("final_price");
-                String status = rs.getString("status");
-                String itemName = rs.getString("name");
+                int currentOrderId = rs.getInt("order_id");
+                
+                // Get item details. These will be NULL if no matching Cart row exists (due to LEFT JOIN).
+                String itemName = rs.getString("item_name");
                 int quantity = rs.getInt("quantity");
 
-                // Logic to visually group items belonging to the same single final transaction
+                // Default values if no item data is found for the order ID
+                String displayItemName = (itemName != null) ? itemName : "No Item Data Found (Review Cart Link)";
+                int displayQuantity = (itemName != null) ? quantity : 0;
+                
+                String username = rs.getString("username");
+                String status = rs.getString("status");
+                double totalAmount = rs.getDouble("total_amount");
+
                 String orderIdDisplay;
-                if (currentFinalPrice != lastFinalPrice || !currentUsername.equals(lastUsername)) {
-                    // This is the first item of a new 'order'
-                    orderIdDisplay = "Order #" + (int) currentFinalPrice; // Simple ID
-                    lastFinalPrice = currentFinalPrice;
-                    lastUsername = currentUsername;
+                String statusDisplay;
+                String totalDisplay;
+
+                if (currentOrderId != lastOrderId) {
+                    // First item of a new, distinct Order - show all details
+                    orderIdDisplay = "Order #" + currentOrderId;
+                    statusDisplay = status;
+                    totalDisplay = String.format("₹%.2f", totalAmount); 
+                    lastOrderId = currentOrderId;
                 } else {
-                    // Subsequent item of the same 'order'
+                    // Subsequent item of the same Order - blank out redundant info
                     orderIdDisplay = "";
-                    status = ""; // Display status only on the first line
-                    currentFinalPrice = 0.0; // Don't repeat total price
+                    statusDisplay = "";
+                    totalDisplay = ""; 
+                    // Blank out username for subsequent rows for cleaner grouping
+                    username = ""; 
                 }
 
                 // Add row to the table
                 tableModel.addRow(new Object[]{
                     orderIdDisplay,
-                    currentUsername,
-                    status,
-                    itemName,
-                    quantity,
-                    currentFinalPrice > 0 ? String.format("%.2f", currentFinalPrice) : ""
+                    username,
+                    statusDisplay,
+                    displayItemName,
+                    displayQuantity,
+                    totalDisplay
                 });
             }
 
