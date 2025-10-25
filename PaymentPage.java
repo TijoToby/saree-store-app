@@ -2,9 +2,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
-import java.text.DecimalFormat;
 import java.sql.*;
-import java.util.Date; 
+import java.text.DecimalFormat;
 
 @SuppressWarnings("serial")
 public class PaymentPage extends JFrame {
@@ -16,7 +15,24 @@ public class PaymentPage extends JFrame {
     private static final double PLATFORM_FEE = 15.00;
     private static final double DELIVERY_FEE = 100.00;
     private static final double TAX_RATE = 0.05;
-
+    
+    // --- Shipping Address Input Fields ---
+    private final JTextField fullNameField = new JTextField(20);
+    private final JTextField addressLineField = new JTextField(20);
+    private final JTextField cityField = new JTextField(15);
+    private final JComboBox<String> stateComboBox;
+    private final JTextField zipCodeField = new JTextField(7);
+    
+    // States for the Dropdown (Example List)
+    private static final String[] INDIAN_STATES = {
+        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", 
+        "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", 
+        "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", 
+        "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", 
+        "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", 
+        "Uttarakhand", "West Bengal"
+    };
+    
     // UI Components for Summary
     private final JLabel subtotalLabel = new JLabel("₹0.00");
     private final JLabel feesLabel = new JLabel("₹" + String.format("%.2f", (PLATFORM_FEE + DELIVERY_FEE)));
@@ -27,15 +43,23 @@ public class PaymentPage extends JFrame {
     private final JRadioButton cardRadio = new JRadioButton("Credit/Debit Card");
     private final JRadioButton codRadio = new JRadioButton("Cash On Delivery (COD)");
     private final JPanel paymentFormContainer = new JPanel(new BorderLayout());
-
+    
+    // Card Input Fields
+    private final JTextField cardHolderNameField = new JTextField(15);
     private final JTextField cardNumberField = new JTextField(15);
     private final JTextField cvvField = new JTextField(5);
     private final JTextField expDateField = new JTextField(5);
+
+    // Decimal formatter for consistent currency display
+    private final DecimalFormat df = new DecimalFormat("₹#,##0.00");
 
     // CONSTRUCTOR
     public PaymentPage(String username, double subtotalPriceFromCart) {
         this.username = username;
         this.subtotalPrice = subtotalPriceFromCart;
+        this.stateComboBox = new JComboBox<>(INDIAN_STATES);
+        
+        // **REMOVED: loadShippingAddress() - No address data in Users table**
         
         setTitle("SareeStore - Checkout & Payment");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -43,25 +67,135 @@ public class PaymentPage extends JFrame {
         getContentPane().setBackground(new Color(245, 245, 245));
         setLayout(new BorderLayout());
 
-        JPanel topBar = createTopBar();
-        add(topBar, BorderLayout.NORTH);
-
-        JPanel mainPanel = new JPanel(new GridLayout(1, 2, 80, 20));
-        mainPanel.setBackground(new Color(245, 245, 245));
-        mainPanel.setBorder(new EmptyBorder(40, 100, 50, 100));
-
-        mainPanel.add(createPaymentOptionsPanel());
-        mainPanel.add(createSummaryPanel());
-
-        add(mainPanel, BorderLayout.CENTER);
+        add(createTopBar(), BorderLayout.NORTH);
+        
+        JScrollPane scrollPane = new JScrollPane(createMainContentPanel());
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        add(scrollPane, BorderLayout.CENTER); 
 
         updateSummaryLabels(); 
+        codRadio.setSelected(true); 
         updatePaymentForm(); 
         
         setVisible(true);
     }
     
-    // --- UI Creation Methods ---
+    // --------------------------------------------------------------------------------
+    // --- UI Layout Methods (Unchanged) ---
+    // --------------------------------------------------------------------------------
+
+    private JPanel createMainContentPanel() {
+        JPanel wrapperPanel = new JPanel(new BorderLayout());
+        wrapperPanel.setBackground(new Color(245, 245, 245));
+        wrapperPanel.setBorder(new EmptyBorder(40, 100, 50, 100));
+        
+        JPanel gridPanel = new JPanel(new GridLayout(1, 2, 80, 20));
+        gridPanel.setBackground(new Color(245, 245, 245));
+
+        JPanel leftPanel = new JPanel();
+        leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
+        leftPanel.setBackground(new Color(245, 245, 245));
+        
+        JPanel addressPanel = createAddressPanel();
+        addressPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, addressPanel.getPreferredSize().height));
+        addressPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        leftPanel.add(addressPanel);
+        
+        leftPanel.add(Box.createVerticalStrut(20));
+        
+        JPanel paymentOptionsPanel = createPaymentOptionsPanel();
+        paymentOptionsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, paymentOptionsPanel.getPreferredSize().height));
+        paymentOptionsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        leftPanel.add(paymentOptionsPanel);
+
+        gridPanel.add(leftPanel);
+        gridPanel.add(createSummaryPanel()); 
+
+        wrapperPanel.add(gridPanel, BorderLayout.NORTH); 
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.setBackground(new Color(245, 245, 245));
+        JButton confirmBtn = new JButton("Place Order");
+        styleButton(confirmBtn, new Color(34, 139, 34));
+        confirmBtn.addActionListener(e -> processPayment(codRadio.isSelected()));
+        buttonPanel.add(confirmBtn);
+        
+        wrapperPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        return wrapperPanel;
+    }
+    
+    private JPanel createAddressPanel() {
+        JPanel panel = new JPanel(new BorderLayout(0, 10));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(Color.GRAY), "Shipping Address",
+            TitledBorder.LEFT, TitledBorder.TOP, new Font("Arial", Font.BOLD, 18)
+        ));
+        
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setBackground(Color.WHITE);
+        form.setBorder(new EmptyBorder(10, 20, 10, 20));
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0; 
+        
+        int y = 0;
+        
+        y = addInputField(form, gbc, "Full Name:", fullNameField, y);
+        y = addInputField(form, gbc, "Address Line:", addressLineField, y);
+        y = addInputField(form, gbc, "City:", cityField, y);
+        
+        JPanel locPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        locPanel.setBackground(Color.WHITE);
+        
+        locPanel.add(createSmallLabel("State:"));
+        stateComboBox.setFont(new Font("Arial", Font.PLAIN, 16));
+        stateComboBox.setPreferredSize(new Dimension(150, 30));
+        stateComboBox.setSelectedIndex(-1); // Start with no selection
+        locPanel.add(stateComboBox);
+        
+        locPanel.add(Box.createHorizontalStrut(20));
+        
+        locPanel.add(createSmallLabel("Zip Code:"));
+        zipCodeField.setFont(new Font("Arial", Font.PLAIN, 16));
+        zipCodeField.setPreferredSize(new Dimension(70, 30));
+        locPanel.add(zipCodeField);
+        
+        gbc.gridx = 0; gbc.gridy = y; gbc.gridwidth = 2;
+        form.add(new JSeparator(SwingConstants.HORIZONTAL), gbc);
+        
+        y++;
+        gbc.gridx = 0; gbc.gridy = y; gbc.gridwidth = 2; gbc.anchor = GridBagConstraints.WEST;
+        form.add(locPanel, gbc);
+        
+        panel.add(form, BorderLayout.NORTH);
+        return panel;
+    }
+    
+    private int addInputField(JPanel panel, GridBagConstraints gbc, String labelText, JTextField field, int y) {
+        gbc.gridx = 0; gbc.gridy = y; gbc.gridwidth = 1; gbc.anchor = GridBagConstraints.WEST;
+        JLabel lbl = new JLabel(labelText);
+        lbl.setFont(new Font("Arial", Font.BOLD, 16));
+        panel.add(lbl, gbc);
+
+        gbc.gridx = 1; gbc.gridy = y;
+        field.setFont(new Font("Arial", Font.PLAIN, 16));
+        field.setPreferredSize(new Dimension(field.getPreferredSize().width, 30)); 
+        panel.add(field, gbc);
+        
+        return y + 1;
+    }
+    
+    private JLabel createSmallLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Arial", Font.BOLD, 16));
+        return lbl;
+    }
+
     private JPanel createPaymentOptionsPanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 20));
         panel.setBackground(Color.WHITE);
@@ -87,11 +221,9 @@ public class PaymentPage extends JFrame {
         radioPanel.add(codRadio);
         panel.add(radioPanel, BorderLayout.NORTH);
 
+        paymentFormContainer.setBackground(Color.WHITE);
         panel.add(paymentFormContainer, BorderLayout.CENTER);
         
-        cardRadio.setSelected(true);
-        updatePaymentForm(); 
-
         cardRadio.addActionListener(e -> updatePaymentForm());
         codRadio.addActionListener(e -> updatePaymentForm());
 
@@ -102,7 +234,8 @@ public class PaymentPage extends JFrame {
         paymentFormContainer.removeAll();
         
         if (codRadio.isSelected()) {
-            paymentFormContainer.add(createCODForm(), BorderLayout.CENTER);
+            String totalText = totalLabel.getText();
+            paymentFormContainer.add(createCODForm(totalText), BorderLayout.CENTER);
         } else if (cardRadio.isSelected()) {
             paymentFormContainer.add(createCardForm(), BorderLayout.CENTER);
         }
@@ -120,8 +253,13 @@ public class PaymentPage extends JFrame {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        cardNumberField.setText("");
+        cardHolderNameField.setText("");
+        cvvField.setText("");
+        expDateField.setText("");
+
         addRow(form, gbc, "Card Number:", cardNumberField, 0);
-        addRow(form, gbc, "Card Holder Name:", new JTextField(15), 1);
+        addRow(form, gbc, "Card Holder Name:", cardHolderNameField, 1);
         
         JPanel smallFields = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         smallFields.setBackground(Color.WHITE);
@@ -137,29 +275,20 @@ public class PaymentPage extends JFrame {
         gbc.gridx = 1; gbc.gridy = 2;
         form.add(smallFields, gbc);
 
-        JButton payBtn = new JButton("Place Order & Pay");
-        styleButton(payBtn, new Color(34, 139, 34));
-        payBtn.addActionListener(e -> processPayment(false));
-
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
-        gbc.insets = new Insets(40, 10, 10, 10);
-        form.add(payBtn, gbc);
+        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2; gbc.weighty = 1.0;
+        form.add(Box.createVerticalStrut(10), gbc);
 
         return form;
     }
     
-    private JPanel createCODForm() {
+    private JPanel createCODForm(String totalAmountText) {
         JPanel form = new JPanel(new GridBagLayout());
         form.setBackground(Color.WHITE);
         form.setBorder(new EmptyBorder(50, 20, 50, 20));
         
-        JLabel warning = new JLabel("<html><b>Cash on Delivery Selected.</b><br>Please have the exact amount (" + totalLabel.getText() + ") ready at the time of delivery.</html>", SwingConstants.CENTER);
+        JLabel warning = new JLabel("<html><div style='text-align: center;'><b>Cash on Delivery Selected.</b><br>Please have the exact amount (" + totalAmountText + ") ready at the time of delivery.</div></html>", SwingConstants.CENTER);
         warning.setFont(new Font("Arial", Font.PLAIN, 16));
         
-        JButton confirmBtn = new JButton("Confirm COD Order");
-        styleButton(confirmBtn, new Color(255, 69, 0));
-        confirmBtn.addActionListener(e -> processPayment(true));
-
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(20, 10, 20, 10);
         gbc.gridx = 0; gbc.gridy = 0;
@@ -167,9 +296,8 @@ public class PaymentPage extends JFrame {
         
         form.add(warning, gbc);
         
-        gbc.gridy = 1;
-        gbc.insets = new Insets(40, 10, 10, 10);
-        form.add(confirmBtn, gbc);
+        gbc.gridy = 1; gbc.weighty = 1.0;
+        form.add(Box.createVerticalStrut(10), gbc);
         
         return form;
     }
@@ -187,8 +315,9 @@ public class PaymentPage extends JFrame {
         JButton backBtn = new JButton("<< Back to Cart");
         styleButton(backBtn, new Color(200, 200, 200));
         backBtn.addActionListener(e -> {
-            // new cartpage(username); // Uncomment if cartpage exists
-            dispose();
+             // Assuming cartpage constructor takes username
+             new cartpage(username); 
+             dispose();
         });
 
         JPanel nav = new JPanel(new FlowLayout(FlowLayout.RIGHT, 25, 5));
@@ -210,22 +339,25 @@ public class PaymentPage extends JFrame {
             new Font("Arial", Font.BOLD, 18)
         ));
 
-        JPanel details = new JPanel(new GridLayout(4, 2, 10, 15));
+        JPanel details = new JPanel(new GridLayout(5, 2, 10, 15));
         details.setBackground(Color.WHITE);
         details.setBorder(new EmptyBorder(30, 30, 30, 30));
 
         details.add(createSummaryLabel("Subtotal:"));
+        subtotalLabel.setFont(new Font("Arial", Font.PLAIN, 18));
         details.add(subtotalLabel);
 
         details.add(createSummaryLabel("Platform + Delivery Fees:"));
+        feesLabel.setFont(new Font("Arial", Font.PLAIN, 18));
         details.add(feesLabel);
 
         details.add(createSummaryLabel("Tax (" + (int)(TAX_RATE * 100) + "%):"));
+        taxLabel.setFont(new Font("Arial", Font.PLAIN, 18));
         details.add(taxLabel);
 
         details.add(new JSeparator(SwingConstants.HORIZONTAL));
         details.add(new JSeparator(SwingConstants.HORIZONTAL));
-
+        
         JLabel grand = createSummaryLabel("GRAND TOTAL:");
         grand.setFont(new Font("Arial", Font.BOLD, 22));
         details.add(grand);
@@ -238,11 +370,19 @@ public class PaymentPage extends JFrame {
         return panel;
     }
 
-    // --- Data Calculation ---
+    // --------------------------------------------------------------------------------
+    // --- Data & Logic Methods ---
+    // --------------------------------------------------------------------------------
+
+    /**
+     * **REMOVED** - This method is no longer needed since the Users table does not hold address info.
+     */
+    /* private void loadShippingAddress() {
+        // ... (removed logic) ...
+    }
+    */
 
     private void updateSummaryLabels() {
-        DecimalFormat df = new DecimalFormat("₹#,##0.00");
-
         double tax = subtotalPrice * TAX_RATE;
         double fees = PLATFORM_FEE + DELIVERY_FEE;
         double total = subtotalPrice + tax + fees;
@@ -252,80 +392,99 @@ public class PaymentPage extends JFrame {
         totalLabel.setText(df.format(total));
     }
 
-    // --- Order Finalization Logic ---
-
     private void processPayment(boolean isCOD) {
+        // 1. VALIDATE AND CAPTURE ADDRESS FROM TEXT FIELDS & COMBO BOX
+        String name = fullNameField.getText().trim();
+        String address = addressLineField.getText().trim();
+        String city = cityField.getText().trim();
+        String state = (String) stateComboBox.getSelectedItem(); 
+        String zip = zipCodeField.getText().trim();
+
+        if (name.isEmpty() || address.isEmpty() || city.isEmpty() || state == null || state.isEmpty() || zip.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please fill in all shipping address fields and select a state.", "Address Required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         String paymentMethod = isCOD ? "Cash on Delivery" : "Card";
-        String orderStatus = isCOD ? "Pending" : "Paid";
+        String orderStatus = isCOD ? "Pending" : "Paid"; 
         
-        if (!isCOD) {
+        if (!isCOD && cardRadio.isSelected()) {
+            // Card Validation
             String cnum = cardNumberField.getText().trim();
             String cvv = cvvField.getText().trim();
             String exp = expDateField.getText().trim();
 
             if (cnum.length() != 16 || cvv.length() != 3 || exp.length() != 5) {
-                JOptionPane.showMessageDialog(this, "Please enter valid card details (16 digits, 3-digit CVV, MM/YY).", "Payment Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please enter valid card details (16-digit Card Number, 3-digit CVV, MM/YY Expiry).", "Payment Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
         }
         
+        // Calculate final total
         double tax = subtotalPrice * TAX_RATE;
         double finalTotal = subtotalPrice + PLATFORM_FEE + DELIVERY_FEE + tax;
 
-        // 1. Create the order record
-        int orderId = createOrderRecord(finalTotal, paymentMethod, orderStatus);
+        // 2. Create the order record using the CAPTURED address
+        int orderId = createOrderRecord(finalTotal, paymentMethod, orderStatus, name, state, city, address, zip);
 
         if (orderId > 0) {
-            // 2. Move cart items to the orderitems table
+            // 3. Move cart items to the orderitems table (CRITICAL TRANSACTIONAL FIX)
             if (moveCartItemsToOrder(orderId)) {
                  JOptionPane.showMessageDialog(this, 
-                    "Order #" + orderId + " placed successfully!\nTotal: " + totalLabel.getText() + 
-                    (isCOD ? "\nStatus: Pending Cash On Delivery." : "\nStatus: Payment successful."), 
-                    "Order Confirmed", JOptionPane.INFORMATION_MESSAGE);
+                     "Order #" + orderId + " placed successfully!\nTotal: " + totalLabel.getText() + 
+                     (isCOD ? "\nStatus: Pending Cash On Delivery." : "\nStatus: Payment successful."), 
+                     "Order Confirmed", JOptionPane.INFORMATION_MESSAGE);
+                 
+                 // **REMOVED: saveShippingAddress() - No saving back to Users table**
+
             } else {
-                 JOptionPane.showMessageDialog(this, "Order created but failed to link cart items. Contact support.", "Critical Error", JOptionPane.ERROR_MESSAGE);
+                 JOptionPane.showMessageDialog(this, 
+                     "Order creation failed to finalize (items not recorded). Order #" + orderId + " will be marked as 'Failed'.\nPlease contact support.", 
+                     "Critical Data Error", JOptionPane.ERROR_MESSAGE);
+                 
+                 try (Connection conn = DBConnection.getConnection();
+                      PreparedStatement ps = conn.prepareStatement("UPDATE orders SET status = 'Failed - Data Error' WHERE order_id = ?")) {
+                     ps.setInt(1, orderId);
+                     ps.executeUpdate();
+                 } catch (SQLException ex) {
+                     System.err.println("Failed to clean up half-order: " + ex.getMessage());
+                 }
+                return; 
             }
         } else {
              JOptionPane.showMessageDialog(this, "Failed to create Order record. Database error.", "Order Error", JOptionPane.ERROR_MESSAGE);
              return;
         }
 
-        // ⭐️ FIX for Navigation: Launch homePage before disposing of the current frame. ⭐️
+        // Navigation after successful order placement
+        // **FIX: Navigates back to HomePage**
+        // You MUST ensure your HomePage class exists and takes a String username in its constructor.
         new homePage(username); 
         dispose();
     }
 
-// ⭐️ FIX for: Field 'shipping_name', 'shipping_state', etc. doesn't have a default value
-private int createOrderRecord(double totalPrice, String paymentMethod, String orderStatus) {
-// SQL includes all required shipping fields with placeholders
-    String sql = "INSERT INTO orders (username, total_amount, payment_method, status, shipping_name, shipping_state, shipping_city, shipping_address, shipping_zip, order_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
-        int orderId = -1;
+    private int createOrderRecord(double totalPrice, String paymentMethod, String orderStatus, 
+                                  String name, String state, String city, String address, String zip) {
         
-        // Placeholder Data (Since the UI doesn't collect it)
-        final String PLACEHOLDER_STATE = "Maharashtra";
-        final String PLACEHOLDER_CITY = "Mumbai";
-        final String PLACEHOLDER_ADDRESS = "Default Pickup Address - Check User Profile";
-        final String PLACEHOLDER_ZIP = "400001"; 
-        final String PLACEHOLDER_NAME = "Self Pickup / " + username; 
+        // This query inserts the address directly into the orders table, using the shipping_* columns
+        String sql = "INSERT INTO orders (username, total_amount, payment_method, status, shipping_name, shipping_state, shipping_city, shipping_address, shipping_zip, order_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+        int orderId = -1;
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
-            // Basic Order Details (1-4)
             pstmt.setString(1, username);
             pstmt.setDouble(2, totalPrice);
             pstmt.setString(3, paymentMethod);
             pstmt.setString(4, orderStatus);
             
-            // Shipping Details (5-9) 
-            pstmt.setString(5, PLACEHOLDER_NAME);
-            pstmt.setString(6, PLACEHOLDER_STATE); 
-            pstmt.setString(7, PLACEHOLDER_CITY);
-            pstmt.setString(8, PLACEHOLDER_ADDRESS);
-            pstmt.setString(9, PLACEHOLDER_ZIP);
+            // Shipping Details (using input parameters)
+            pstmt.setString(5, name);
+            pstmt.setString(6, state); 
+            pstmt.setString(7, city);
+            pstmt.setString(8, address);
+            pstmt.setString(9, zip);
             
-            // NOW() automatically handles the 10th parameter (order_date)
-
             int affectedRows = pstmt.executeUpdate();
             
             if (affectedRows > 0) {
@@ -337,34 +496,36 @@ private int createOrderRecord(double totalPrice, String paymentMethod, String or
             }
         } catch (SQLException ex) {
             System.err.println("Error creating order record: " + ex.getMessage());
-            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "SQL Error creating order: " + ex.getMessage(), "DB Error", JOptionPane.ERROR_MESSAGE);
         }
         return orderId;
     }
-
+    
     /**
-    * Transactional logic to move cart items to orderitems and clear the cart.
+     * **REMOVED** - This method is no longer needed since the Users table does not have address columns.
+     */
+    /*
+    private void saveShippingAddress(String name, String address, String city, String state, String zip) {
+        // ... (removed logic) ...
+    }
     */
+
     private boolean moveCartItemsToOrder(int orderId) {
         Connection conn = null;
         boolean success = false;
         
-        // Step A: SELECT the cart items before deleting them
         String selectSql = "SELECT c.product_id, c.quantity, p.price " +
                               "FROM cart c JOIN Products p ON c.product_id = p.product_id " +
-                              "WHERE c.username = ? AND c.order_id IS NULL";
+                              "WHERE c.username = ?"; 
         
-        // Step B: INSERT one item at a time into orderitems
         String insertSql = "INSERT INTO orderitems (order_id, product_id, quantity, price_at_purchase) VALUES (?, ?, ?, ?)";
         
-        // Step C: DELETE items from the Cart
-        String deleteSql = "DELETE FROM cart WHERE username = ? AND order_id IS NULL";
+        String deleteSql = "DELETE FROM cart WHERE username = ?";
 
         try {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false); 
 
-            // 1. Fetch all items from the cart and insert into orderitems
             try (PreparedStatement selectPstmt = conn.prepareStatement(selectSql)) {
                 selectPstmt.setString(1, username);
                 try (ResultSet rs = selectPstmt.executeQuery();
@@ -375,18 +536,16 @@ private int createOrderRecord(double totalPrice, String paymentMethod, String or
                         int quantity = rs.getInt("quantity");
                         double price = rs.getDouble("price");
 
-                        // Insert item into permanent orderitems table
                         insertPstmt.setInt(1, orderId);
                         insertPstmt.setInt(2, productId);
                         insertPstmt.setInt(3, quantity);
                         insertPstmt.setDouble(4, price);
-                        insertPstmt.addBatch();
+                        insertPstmt.addBatch(); 
                     }
-                    insertPstmt.executeBatch(); // Execute all inserts at once
+                    insertPstmt.executeBatch(); 
                 }
             }
 
-            // 2. Clear the temporary Cart records
             try (PreparedStatement deletePstmt = conn.prepareStatement(deleteSql)) {
                 deletePstmt.setString(1, username);
                 deletePstmt.executeUpdate();
@@ -396,9 +555,11 @@ private int createOrderRecord(double totalPrice, String paymentMethod, String or
             conn.commit(); 
             
         } catch (SQLException ex) {
-            // Rollback and report error
             try {
-                if (conn != null) conn.rollback();
+                if (conn != null) {
+                    conn.rollback(); 
+                    System.err.println("Transaction rolled back due to error.");
+                }
             } catch (SQLException rollbackEx) { }
             System.err.println("Transaction failed: " + ex.getMessage());
             ex.printStackTrace();
@@ -412,7 +573,10 @@ private int createOrderRecord(double totalPrice, String paymentMethod, String or
         return success;
     }
     
-    // --- Helper Methods ---
+    // ---------------------------------
+    // --- Helper Methods (Unchanged) ---
+    // ---------------------------------
+
     private void addRow(JPanel panel, GridBagConstraints gbc, String labelText, JComponent comp, int y) {
         gbc.gridx = 0; gbc.gridy = y; gbc.gridwidth = 1;
         JLabel lbl = new JLabel(labelText);
@@ -438,4 +602,5 @@ private int createOrderRecord(double totalPrice, String paymentMethod, String or
         button.setBorder(BorderFactory.createEmptyBorder(12, 30, 12, 30));
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
+    
 }
