@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
+// NOTE: Assumes AdminPage.java and DBConnection.java are implemented elsewhere.
+
 @SuppressWarnings("serial")
 public class AdminPaymentDetailsPage extends JFrame {
 
@@ -34,7 +36,6 @@ public class AdminPaymentDetailsPage extends JFrame {
         mainPanel.setBorder(new EmptyBorder(20, 50, 20, 50));
         mainPanel.setBackground(new Color(245, 245, 245));
         
-        // FIX: Column names changed to reflect a single-line summary
         String[] columnNames = {"Order ID", "Username", "Status", "Item Summary", "Total Price (₹)"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
@@ -60,9 +61,11 @@ public class AdminPaymentDetailsPage extends JFrame {
         setVisible(true);
     }
     
-    // UI Creation Methods (Same as before)
+    // ---------------------------------
+    // --- UI Creation Methods ---
+    // ---------------------------------
+
     private JPanel createTopBar() {
-        // ... (Code for createTopBar remains the same)
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setBackground(Color.WHITE);
         topBar.setBorder(new EmptyBorder(15, 30, 15, 30));
@@ -84,10 +87,12 @@ public class AdminPaymentDetailsPage extends JFrame {
         
         JButton backBtn = new JButton("<< Back to Admin Home");
         styleButton(backBtn, new Color(200, 200, 200));
+        
+        // --- Navigation: Open AdminPage and close current window ---
         backBtn.addActionListener(e -> {
-            // Assuming AdminPage exists
-             // new AdminPage(adminUsername).setVisible(true); 
-             dispose();
+            // Assumes AdminPage is in the current package
+            new AdminPage(adminUsername).setVisible(true); 
+            dispose();
         });
 
         navButtons.add(refreshBtn);
@@ -109,29 +114,26 @@ public class AdminPaymentDetailsPage extends JFrame {
 
 
     // ---------------------------------
-    // --- Database Logic (FINAL CORRECTED) ---
+    // --- Database Logic ---
     // ---------------------------------
 
     /**
-     * FIX: Loads all orders, aggregates item quantities, and then combines all items 
+     * Loads all orders, aggregates item quantities, and then combines all items 
      * into a single 'Item Summary' string per order ID.
      */
     public void loadPaymentDetails() { 
         tableModel.setRowCount(0); 
         
-        // Map to hold aggregated data: Key=OrderID, Value=OrderSummaryData
-        // TreeMap keeps the orders sorted (optional, but good practice for display)
-        Map<Integer, OrderSummaryData> orderMap = new TreeMap<>((a, b) -> b.compareTo(a)); // Descending order
+        // TreeMap sorts orders by ID in descending order
+        Map<Integer, OrderSummaryData> orderMap = new TreeMap<>((a, b) -> b.compareTo(a)); 
 
-        // SQL: Gets all item line data for ALL orders, but uses aggregation to prevent 
-        // duplicate line items from cart logic errors (e.g., Order #27).
+        // SQL query joins Orders, OrderItems, and Products to get all necessary data in one go
         String sql = "SELECT o.order_id, o.username, o.status, o.total_amount, " +
                      "p.name AS item_name, " +
-                     "SUM(oi.quantity) AS TotalQuantity " + // Aggregated Quantity
+                     "oi.quantity " + 
                      "FROM orders o " +
                      "LEFT JOIN orderitems oi ON o.order_id = oi.order_id " +
                      "LEFT JOIN products p ON oi.product_id = p.product_id " +
-                     "GROUP BY o.order_id, o.username, o.status, o.total_amount, p.name " + // Group by all non-aggregated columns
                      "ORDER BY o.order_id DESC, p.name ASC";
 
         try (Connection conn = DBConnection.getConnection();
@@ -143,16 +145,13 @@ public class AdminPaymentDetailsPage extends JFrame {
                 return;
             }
 
-            // 1. ITERATE OVER RESULTS AND AGGREGATE ITEMS BY ORDER ID
+            // 1. Iterate over results and aggregate items by Order ID
             while (rs.next()) {
                 int orderId = rs.getInt("order_id");
-                String itemName = rs.getString("item_name");
-                int totalQuantity = rs.getInt("TotalQuantity"); 
                 
+                // Initialize new OrderSummaryData if this is a new order
                 OrderSummaryData data = orderMap.get(orderId);
-                
                 if (data == null) {
-                    // New Order ID found - initialize OrderSummaryData
                     data = new OrderSummaryData(
                         orderId,
                         rs.getString("username"),
@@ -162,26 +161,26 @@ public class AdminPaymentDetailsPage extends JFrame {
                     orderMap.put(orderId, data);
                 }
                 
-                // Add the item to the order's item list
-                if (itemName != null) {
-                    data.addItem(itemName, totalQuantity);
-                }
+                // Add the item to the order's item list for aggregation
+                String itemName = rs.getString("item_name");
+                int quantity = rs.getInt("quantity"); 
+                data.addItem(itemName, quantity);
             }
             
-            // 2. ITERATE OVER THE AGGREGATED MAP AND POPULATE THE TABLE
+            // 2. Iterate over the aggregated map and populate the JTable
             for (OrderSummaryData data : orderMap.values()) {
                 tableModel.addRow(new Object[]{
                     "Order #" + data.orderId,
                     data.username,
                     data.status,
-                    data.getItemSummaryString(), // FIX: This is the single-line summary
+                    data.getItemSummaryString(), 
                     String.format("₹%.2f", data.totalAmount)
                 });
             }
 
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, 
-                "Database Error loading order details. Check DBConnection and table structure: " + ex.getMessage(), 
+                "Database Error loading order details. Check DBConnection and ensure MySQL is running: " + ex.getMessage(), 
                 "DB Error", JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
         }
@@ -192,15 +191,14 @@ public class AdminPaymentDetailsPage extends JFrame {
     // ---------------------------------
     
     /**
-     * Helper class to hold and aggregate all item data for a single order, 
-     * allowing it to be condensed into a single summary string.
+     * Helper class to hold and aggregate all item data for a single order.
      */
     private static class OrderSummaryData {
         public final int orderId;
         public final String username;
         public final String status;
         public final double totalAmount;
-        // Map to store item name and its aggregated quantity
+        // Map to store item name and its total quantity in this order
         private final Map<String, Integer> items = new HashMap<>();
 
         public OrderSummaryData(int orderId, String username, String status, double totalAmount) {
@@ -211,18 +209,22 @@ public class AdminPaymentDetailsPage extends JFrame {
         }
         
         public void addItem(String itemName, int quantity) {
-            // This method should not be needed if SQL aggregation works, but acts as a safeguard
-            items.put(itemName, items.getOrDefault(itemName, 0) + quantity); 
+            // Handle cases where product_id might be missing or null
+            String name = (itemName != null) ? itemName : "No Item Data Found";
+            items.put(name, items.getOrDefault(name, 0) + quantity); 
         }
 
         public String getItemSummaryString() {
-            if (items.isEmpty()) {
-                return "No Item Data Found";
+            if (items.isEmpty() || (items.size() == 1 && items.containsKey("No Item Data Found"))) {
+                 return "No Item Data Found (Order Items Missing)";
             }
             
             StringBuilder sb = new StringBuilder();
             boolean first = true;
             for (Map.Entry<String, Integer> entry : items.entrySet()) {
+                // Skip the placeholder if real items exist
+                if (entry.getKey().equals("No Item Data Found")) continue;
+
                 if (!first) {
                     sb.append(", ");
                 }
@@ -230,17 +232,18 @@ public class AdminPaymentDetailsPage extends JFrame {
                 sb.append(entry.getKey()).append(" (x").append(entry.getValue()).append(")");
                 first = false;
             }
-            return sb.toString();
+            
+            return sb.length() > 0 ? sb.toString() : "No Item Data Found (Logic Error)";
         }
     }
+
+    // You must ensure DBConnection.java is defined in a separate file.
+    // You must ensure AdminPage.java is defined in a separate file.
     
-    /**
-     * Placeholder for DBConnection. Replace this with your actual database connection utility.
-     */
-    private static class DBConnection {
-        public static Connection getConnection() throws SQLException {
-            // Replace with your actual connection details
-            throw new UnsupportedOperationException("DBConnection.getConnection() not implemented. Provide your actual implementation.");
-        }
+    public static void main(String[] args) {
+        // Run this to test the page, assuming DBConnection and data are ready.
+        SwingUtilities.invokeLater(() -> {
+            new AdminPaymentDetailsPage("test_admin");
+        });
     }
 }
